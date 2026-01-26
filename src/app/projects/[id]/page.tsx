@@ -212,7 +212,7 @@ export default function ProjectDetailPage({ params }: ProjectDetailPageProps) {
               <AlertDialogCancel>キャンセル</AlertDialogCancel>
               <AlertDialogAction
                 onClick={handleDelete}
-                className="bg-destructive text-white hover:bg-destructive/90"
+                variant="destructive"
               >
                 削除
               </AlertDialogAction>
