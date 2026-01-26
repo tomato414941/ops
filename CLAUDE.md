@@ -1,33 +1,45 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
 ## Commands
 
 ```bash
-npm run dev              # Start development server (port 3000)
-npm run dev -- --hostname 0.0.0.0  # Listen on all interfaces (for remote access)
-npm run build            # Production build
-npm run lint             # Run ESLint
+npm run dev              # 開発サーバー (port 3000)
+npm run dev -- --hostname 0.0.0.0  # リモートアクセス用
+npm run dev:clean        # キャッシュクリア後に起動
+npm run build            # プロダクションビルド
+npm run lint             # ESLint
+npm run test             # Vitest
 ```
 
 ## Architecture
 
-This is a Next.js dashboard for managing Claude Code CLI sessions via web UI.
+Next.js ダッシュボード。Claude Code CLI セッションを Web UI で管理。
 
 ### Core Flow
-1. User selects a Project → Connection → creates a Session
-2. Session spawns `claude` CLI process with `--output-format stream-json`
-3. CLI output is streamed to browser via Server-Sent Events (SSE)
+1. Project → Connection → Session を選択/作成
+2. Connection タイプに応じて処理:
+   - claude_code_cli: CLI プロセスをスポーン
+   - agent_sdk: Anthropic SDK でストリーミング
+3. SSE でブラウザにリアルタイム配信
 
 ### Key Files
-- `src/lib/claude-cli.ts` - Spawns Claude CLI process and parses stream output
-- `src/app/api/sessions/[id]/route.ts` - SSE endpoint that runs Claude CLI and streams responses
-- `src/components/SessionView.tsx` - Chat UI with real-time streaming display
-- `src/data/dummy.ts` - In-memory data store (projects, sessions, messages)
-- `src/types/project.ts` - Type definitions for Project, Connection, Session, Message
+- `src/lib/claude-cli.ts` - CLI プロセス実行
+- `src/lib/anthropic.ts` - Anthropic SDK ストリーミング
+- `src/app/api/sessions/[id]/route.ts` - SSE エンドポイント
+- `src/components/SessionView.tsx` - チャット UI
+- `src/data/dummy.ts` - インメモリデータストア
 
 ### Data Model
-- **Project** has many **Connections** (claude_code_cli or agent_sdk type)
-- **Connection** has a working directory for CLI execution
-- **Session** belongs to a Connection, stores chat history
+- Project has many Connections
+- Connection: claude_code_cli (workingDir) or agent_sdk (systemPrompt)
+- Session belongs to Connection, stores Messages
+
+### Directory Structure
+```
+src/
+├── app/           # Next.js App Router (pages, API routes)
+├── components/    # React components + shadcn/ui
+├── lib/           # Utilities (claude-cli, anthropic, logger)
+├── data/          # Data store (dummy.ts, storage.ts)
+└── types/         # TypeScript definitions
+```
