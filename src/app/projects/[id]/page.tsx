@@ -1,12 +1,27 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { ConnectionCard } from "@/components/ConnectionCard";
 import { ConnectionForm } from "@/components/ConnectionForm";
 import { ProjectForm } from "@/components/ProjectForm";
+import { Spinner } from "@/components/Spinner";
+import { useToast } from "@/components/ToastContext";
 import { Project, ProjectStatus } from "@/types/project";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { ArrowLeft, Pencil, Trash2, Plus } from "lucide-react";
 
 interface ProjectDetailPageProps {
   params: Promise<{ id: string }>;
@@ -14,12 +29,16 @@ interface ProjectDetailPageProps {
 
 export default function ProjectDetailPage({ params }: ProjectDetailPageProps) {
   const router = useRouter();
+  const { showToast } = useToast();
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [showEditForm, setShowEditForm] = useState(false);
   const [showConnectionForm, setShowConnectionForm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
+    let isMounted = true;
+
     params.then(({ id }) => {
       fetch(`/api/projects/${id}`)
         .then((res) => {
@@ -27,55 +46,83 @@ export default function ProjectDetailPage({ params }: ProjectDetailPageProps) {
           return res.json();
         })
         .then((data) => {
-          setProject(data.project);
-          setLoading(false);
+          if (isMounted) {
+            setProject(data.project);
+            setLoading(false);
+          }
         })
         .catch(() => {
-          setLoading(false);
+          if (isMounted) {
+            setLoading(false);
+          }
         });
     });
+
+    return () => {
+      isMounted = false;
+    };
   }, [params]);
 
   const handleUpdate = async (data: { name: string; status: ProjectStatus }) => {
     if (!project) return;
-    await fetch(`/api/projects/${project.id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    setProject({ ...project, ...data });
-    setShowEditForm(false);
+    try {
+      const res = await fetch(`/api/projects/${project.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error("更新に失敗しました");
+      setProject({ ...project, ...data });
+      setShowEditForm(false);
+      showToast("プロジェクトを更新しました", "success");
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "エラーが発生しました", "error");
+    }
   };
 
   const handleDelete = async () => {
     if (!project) return;
-    if (!confirm(`「${project.name}」を削除しますか？`)) return;
-    await fetch(`/api/projects/${project.id}`, { method: "DELETE" });
-    router.push("/");
+    setShowDeleteConfirm(false);
+    try {
+      const res = await fetch(`/api/projects/${project.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("削除に失敗しました");
+      showToast("プロジェクトを削除しました", "success");
+      router.push("/");
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "エラーが発生しました", "error");
+    }
   };
 
-  const refreshProject = async () => {
+  const refreshProject = useCallback(async () => {
     if (!project) return;
-    const res = await fetch(`/api/projects/${project.id}`);
-    const data = await res.json();
-    setProject(data.project);
-  };
+    try {
+      const res = await fetch(`/api/projects/${project.id}`);
+      if (!res.ok) throw new Error("取得に失敗しました");
+      const data = await res.json();
+      setProject(data.project);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "エラーが発生しました", "error");
+    }
+  }, [project, showToast]);
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-gray-100 p-8">
-        <p className="text-gray-500">Loading...</p>
+      <main className="flex-1 bg-background p-8 flex items-center justify-center">
+        <Spinner size="lg" />
       </main>
     );
   }
 
   if (!project) {
     return (
-      <main className="min-h-screen bg-gray-100 p-8">
-        <Link href="/" className="text-blue-600 hover:underline">
-          &larr; プロジェクト一覧に戻る
-        </Link>
-        <p className="mt-4 text-red-600">プロジェクトが見つかりません</p>
+      <main className="flex-1 bg-background">
+        <div className="container mx-auto max-w-4xl p-8">
+          <Link href="/" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
+            <ArrowLeft className="size-4" />
+            プロジェクト一覧に戻る
+          </Link>
+          <p className="mt-4 text-destructive">プロジェクトが見つかりません</p>
+        </div>
       </main>
     );
   }
@@ -83,81 +130,96 @@ export default function ProjectDetailPage({ params }: ProjectDetailPageProps) {
   const isActionRequired = project.status === "action_required";
 
   return (
-    <main className="min-h-screen bg-gray-100 p-8">
-      <Link href="/" className="text-blue-600 hover:underline mb-4 inline-block">
-        &larr; プロジェクト一覧に戻る
-      </Link>
+    <main className="flex-1 bg-background">
+      <div className="container mx-auto max-w-4xl p-8">
+        <Link href="/" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-6">
+          <ArrowLeft className="size-4" />
+          プロジェクト一覧に戻る
+        </Link>
 
-      <div className="mb-6">
-        <div className="flex items-center gap-4">
-          <h1 className="text-2xl font-bold text-gray-900">{project.name}</h1>
-          <button
-            onClick={() => setShowEditForm(true)}
-            className="px-3 py-1 text-sm text-blue-600 hover:text-blue-800 border border-blue-600 rounded"
-          >
-            編集
-          </button>
-          <button
-            onClick={handleDelete}
-            className="px-3 py-1 text-sm text-red-600 hover:text-red-800 border border-red-600 rounded"
-          >
-            削除
-          </button>
-        </div>
-        <span
-          className={`inline-block mt-2 px-2 py-1 text-sm rounded ${
-            isActionRequired
-              ? "bg-red-200 text-red-800"
-              : "bg-gray-200 text-gray-600"
-          }`}
-        >
-          {isActionRequired ? "要アクション" : "待機中"}
-        </span>
-      </div>
-
-      <section>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-800">Connections</h2>
-          <button
-            onClick={() => setShowConnectionForm(true)}
-            className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700"
-          >
-            コネクション追加
-          </button>
-        </div>
-        {project.connections.length === 0 ? (
-          <p className="text-gray-500">Connectionがありません</p>
-        ) : (
-          <div className="space-y-3">
-            {project.connections.map((conn) => (
-              <ConnectionCard
-                key={conn.id}
-                connection={conn}
-                projectId={project.id}
-                onUpdate={refreshProject}
-              />
-            ))}
+        <div className="mb-8">
+          <div className="flex flex-wrap items-center gap-3 mb-2">
+            <h1 className="text-3xl font-bold tracking-tight">{project.name}</h1>
+            <Badge variant={isActionRequired ? "destructive" : "secondary"}>
+              {isActionRequired ? "要アクション" : "待機中"}
+            </Badge>
           </div>
-        )}
-      </section>
+          <div className="flex gap-2 mt-4">
+            <Button variant="outline" size="sm" onClick={() => setShowEditForm(true)}>
+              <Pencil className="size-4" />
+              編集
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setShowDeleteConfirm(true)} className="text-destructive hover:text-destructive">
+              <Trash2 className="size-4" />
+              削除
+            </Button>
+          </div>
+        </div>
 
-      {showEditForm && (
-        <ProjectForm
-          project={project}
-          onSubmit={handleUpdate}
-          onCancel={() => setShowEditForm(false)}
-        />
-      )}
-      {showConnectionForm && (
-        <ConnectionForm
-          projectId={project.id}
-          onSubmit={() => {
-            setShowConnectionForm(false);
-            refreshProject();
-          }}
-          onCancel={() => setShowConnectionForm(false)}
-        />
-      )}
+        <section>
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+            <h2 className="text-xl font-semibold">Connections</h2>
+            <Button onClick={() => setShowConnectionForm(true)} size="sm">
+              <Plus className="size-4" />
+              コネクション追加
+            </Button>
+          </div>
+          {project.connections.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground border border-dashed rounded-lg">
+              <p className="mb-1">Connectionがありません</p>
+              <p className="text-sm">「コネクション追加」から作成してください</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {project.connections.map((conn) => (
+                <ConnectionCard
+                  key={conn.id}
+                  connection={conn}
+                  projectId={project.id}
+                  onUpdate={refreshProject}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+
+        {showEditForm && (
+          <ProjectForm
+            project={project}
+            onSubmit={handleUpdate}
+            onCancel={() => setShowEditForm(false)}
+          />
+        )}
+        {showConnectionForm && (
+          <ConnectionForm
+            projectId={project.id}
+            onSubmit={() => {
+              setShowConnectionForm(false);
+              refreshProject();
+            }}
+            onCancel={() => setShowConnectionForm(false)}
+          />
+        )}
+        <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>プロジェクトの削除</AlertDialogTitle>
+              <AlertDialogDescription>
+                「{project.name}」を削除しますか？この操作は取り消せません。
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>キャンセル</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDelete}
+                className="bg-destructive text-white hover:bg-destructive/90"
+              >
+                削除
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
     </main>
   );
 }

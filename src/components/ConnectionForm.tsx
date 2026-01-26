@@ -2,6 +2,23 @@
 
 import { useState } from "react";
 import { Connection, ConnectionType, ClaudeCodeConnection, AgentSdkConnection } from "@/types/project";
+import { useToast } from "./ToastContext";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface ConnectionFormProps {
   projectId: string;
@@ -11,6 +28,7 @@ interface ConnectionFormProps {
 }
 
 export function ConnectionForm({ projectId, connection, onSubmit, onCancel }: ConnectionFormProps) {
+  const { showToast } = useToast();
   const [type, setType] = useState<ConnectionType>(connection?.type || "claude_code_cli");
   const [name, setName] = useState(connection?.name || "");
   const [workingDir, setWorkingDir] = useState(
@@ -27,115 +45,104 @@ export function ConnectionForm({ projectId, connection, onSubmit, onCancel }: Co
 
     setIsLoading(true);
     try {
-      if (connection) {
-        await fetch(`/api/projects/${projectId}/connections/${connection.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: name.trim(),
-            workingDir: type === "claude_code_cli" ? workingDir.trim() : undefined,
-            systemPrompt: type === "agent_sdk" ? systemPrompt.trim() : undefined,
-          }),
-        });
-      } else {
-        await fetch(`/api/projects/${projectId}/connections`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            type,
-            name: name.trim(),
-            workingDir: type === "claude_code_cli" ? workingDir.trim() : undefined,
-            systemPrompt: type === "agent_sdk" ? systemPrompt.trim() : undefined,
-          }),
-        });
+      const url = connection
+        ? `/api/projects/${projectId}/connections/${connection.id}`
+        : `/api/projects/${projectId}/connections`;
+      const method = connection ? "PUT" : "POST";
+
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: connection ? undefined : type,
+          name: name.trim(),
+          workingDir: type === "claude_code_cli" ? workingDir.trim() : undefined,
+          systemPrompt: type === "agent_sdk" ? systemPrompt.trim() : undefined,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error("保存に失敗しました");
       }
+
+      showToast(connection ? "コネクションを更新しました" : "コネクションを作成しました", "success");
       onSubmit();
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "エラーが発生しました", "error");
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">
-          {connection ? "コネクション編集" : "新規コネクション"}
-        </h2>
-        <form onSubmit={handleSubmit}>
+    <Dialog open={true} onOpenChange={(open) => !open && onCancel()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>
+            {connection ? "コネクション編集" : "新規コネクション"}
+          </DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
           {!connection && (
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                タイプ
-              </label>
-              <select
-                value={type}
-                onChange={(e) => setType(e.target.value as ConnectionType)}
-                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="claude_code_cli">Claude Code CLI</option>
-                <option value="agent_sdk">Agent SDK</option>
-              </select>
+            <div className="space-y-2">
+              <Label htmlFor="type">タイプ</Label>
+              <Select value={type} onValueChange={(v) => setType(v as ConnectionType)}>
+                <SelectTrigger id="type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="claude_code_cli">Claude Code CLI</SelectItem>
+                  <SelectItem value="agent_sdk">Agent SDK</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           )}
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              名前
-            </label>
-            <input
+          <div className="space-y-2">
+            <Label htmlFor="name">名前</Label>
+            <Input
+              id="name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="コネクション名を入力"
               autoFocus
             />
           </div>
           {type === "claude_code_cli" && (
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                作業ディレクトリ
-              </label>
-              <input
+            <div className="space-y-2">
+              <Label htmlFor="workingDir">作業ディレクトリ</Label>
+              <Input
+                id="workingDir"
                 type="text"
                 value={workingDir}
                 onChange={(e) => setWorkingDir(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
                 placeholder="/home/user/projects/myapp"
+                className="font-mono text-sm"
               />
             </div>
           )}
           {type === "agent_sdk" && (
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                システムプロンプト
-              </label>
+            <div className="space-y-2">
+              <Label htmlFor="systemPrompt">システムプロンプト</Label>
               <textarea
+                id="systemPrompt"
                 value={systemPrompt}
                 onChange={(e) => setSystemPrompt(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 h-24"
+                className="flex min-h-24 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                 placeholder="アシスタントの役割を記述..."
               />
             </div>
           )}
-          <div className="flex gap-3 justify-end">
-            <button
-              type="button"
-              onClick={onCancel}
-              disabled={isLoading}
-              className="px-4 py-2 text-gray-600 hover:text-gray-800 disabled:opacity-50"
-            >
+          <div className="flex gap-3 justify-end pt-2">
+            <Button type="button" variant="ghost" onClick={onCancel} disabled={isLoading}>
               キャンセル
-            </button>
-            <button
-              type="submit"
-              disabled={isLoading || !name.trim()}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-            >
+            </Button>
+            <Button type="submit" disabled={isLoading || !name.trim()}>
               {isLoading ? "保存中..." : connection ? "更新" : "作成"}
-            </button>
+            </Button>
           </div>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

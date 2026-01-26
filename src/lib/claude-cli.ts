@@ -1,53 +1,113 @@
-import { spawn, ChildProcess } from "child_process";
+import { spawn } from "child_process";
 import { createLogger } from "./logger";
 
 const log = createLogger("claude-cli");
 
-export interface ClaudeStreamEvent {
-  type: string;
-  content?: string;
-  error?: string;
-  [key: string]: unknown;
-}
+export type CliOutput = {
+  text: string;
+  sessionId?: string;
+};
 
-export function runClaudeCode(
-  prompt: string,
-  workingDir: string,
-  sessionId?: string
-): ChildProcess {
-  const args = ["-p", prompt, "--output-format", "stream-json", "--verbose", "--include-partial-messages"];
-
-  if (sessionId) {
-    args.push("-r", sessionId);
-  }
-
-  log.debug("Spawning claude process", { args, workingDir, sessionId });
-
-  const child = spawn("claude", args, {
-    cwd: workingDir,
-    env: { ...process.env },
-  });
-
-  child.on("spawn", () => {
-    log.debug("Claude process spawned", { pid: child.pid });
-  });
-
-  child.on("error", (err) => {
-    log.error("Claude process error", { error: err.message });
-  });
-
-  child.on("close", (code, signal) => {
-    log.debug("Claude process closed", { code, signal });
-  });
-
-  return child;
-}
-
-export function parseStreamLine(line: string): ClaudeStreamEvent | null {
-  if (!line.trim()) return null;
+export function parseStreamLine(line: string): Record<string, unknown> | null {
+  const trimmed = line.trim();
+  if (!trimmed) return null;
   try {
-    return JSON.parse(line);
+    return JSON.parse(trimmed);
   } catch {
     return null;
   }
+}
+
+type SpawnResult = {
+  stdout: string;
+  stderr: string;
+  code: number | null;
+};
+
+async function runClaudeCommand(
+  args: string[],
+  options: { timeoutMs: number; cwd: string }
+): Promise<SpawnResult> {
+  const { timeoutMs, cwd } = options;
+
+  return new Promise((resolve, reject) => {
+    const child = spawn("claude", args, {
+      stdio: ["ignore", "pipe", "pipe"],
+      cwd,
+      env: { ...process.env },
+    });
+
+    let stdout = "";
+    let stderr = "";
+    let settled = false;
+
+    const timer = setTimeout(() => {
+      child.kill("SIGKILL");
+    }, timeoutMs);
+
+    child.stdout?.on("data", (d) => {
+      stdout += d.toString();
+    });
+    child.stderr?.on("data", (d) => {
+      stderr += d.toString();
+    });
+
+    child.on("error", (err) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      reject(err);
+    });
+
+    child.on("close", (code) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve({ stdout, stderr, code });
+    });
+  });
+}
+
+function parseCliJson(raw: string): CliOutput | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  try {
+    const parsed = JSON.parse(trimmed);
+    return {
+      text: parsed.result || "",
+      sessionId: parsed.session_id,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function runClaudeCode(
+  prompt: string,
+  workingDir: string,
+  options?: { timeoutMs?: number; sessionId?: string }
+): Promise<CliOutput> {
+  const timeoutMs = options?.timeoutMs ?? 300_000;
+  const args = ["-p", prompt, "--output-format", "json"];
+
+  if (options?.sessionId) {
+    args.push("--session-id", options.sessionId);
+  }
+
+  log.info("Running claude command", { workingDir });
+
+  const result = await runClaudeCommand(args, { timeoutMs, cwd: workingDir });
+
+  if (result.code !== 0) {
+    const err = result.stderr || result.stdout || "CLI failed";
+    log.error("Claude CLI failed", { code: result.code, error: err });
+    throw new Error(err);
+  }
+
+  const output = parseCliJson(result.stdout);
+  if (!output) {
+    throw new Error("Failed to parse CLI output");
+  }
+
+  return output;
 }

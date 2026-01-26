@@ -25,7 +25,8 @@ export async function POST(
   let connectionData: Omit<ClaudeCodeConnection, "id"> | Omit<AgentSdkConnection, "id">;
 
   if (type === "claude_code_cli") {
-    connectionData = { type, name, workingDir: workingDir || "" };
+    const defaultDir = process.env.HOME || "/tmp";
+    connectionData = { type, name, workingDir: workingDir || defaultDir };
   } else if (type === "agent_sdk") {
     connectionData = { type, name, systemPrompt };
   } else {

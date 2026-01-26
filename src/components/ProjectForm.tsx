@@ -2,6 +2,22 @@
 
 import { useState } from "react";
 import { Project, ProjectStatus } from "@/types/project";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface ProjectFormProps {
   project?: Project;
@@ -27,59 +43,49 @@ export function ProjectForm({ project, onSubmit, onCancel }: ProjectFormProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">
-          {project ? "プロジェクト編集" : "新規プロジェクト"}
-        </h2>
-        <form onSubmit={handleSubmit}>
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              プロジェクト名
-            </label>
-            <input
+    <Dialog open={true} onOpenChange={(open) => !open && onCancel()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>
+            {project ? "プロジェクト編集" : "新規プロジェクト"}
+          </DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="name">プロジェクト名</Label>
+            <Input
+              id="name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="プロジェクト名を入力"
               autoFocus
             />
           </div>
           {project && (
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                ステータス
-              </label>
-              <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value as ProjectStatus)}
-                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="waiting">待機中</option>
-                <option value="action_required">要アクション</option>
-              </select>
+            <div className="space-y-2">
+              <Label htmlFor="status">ステータス</Label>
+              <Select value={status} onValueChange={(v) => setStatus(v as ProjectStatus)}>
+                <SelectTrigger id="status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="waiting">待機中</SelectItem>
+                  <SelectItem value="action_required">要アクション</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           )}
-          <div className="flex gap-3 justify-end">
-            <button
-              type="button"
-              onClick={onCancel}
-              disabled={isLoading}
-              className="px-4 py-2 text-gray-600 hover:text-gray-800 disabled:opacity-50"
-            >
+          <div className="flex gap-3 justify-end pt-2">
+            <Button type="button" variant="ghost" onClick={onCancel} disabled={isLoading}>
               キャンセル
-            </button>
-            <button
-              type="submit"
-              disabled={isLoading || !name.trim()}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-            >
+            </Button>
+            <Button type="submit" disabled={isLoading || !name.trim()}>
               {isLoading ? "保存中..." : project ? "更新" : "作成"}
-            </button>
+            </Button>
           </div>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
