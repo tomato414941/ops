@@ -88,7 +88,7 @@ describe("ConfirmDialog", () => {
       />
     );
     const confirmButton = screen.getByText("確認");
-    expect(confirmButton).toHaveClass("bg-red-600");
+    expect(confirmButton).toHaveAttribute("data-variant", "destructive");
   });
 
   it("calls onCancel when Escape key is pressed", () => {

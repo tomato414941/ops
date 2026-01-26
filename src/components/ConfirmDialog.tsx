@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useCallback } from "react";
+import { Button } from "@/components/ui/button";
 
 interface ConfirmDialogProps {
   isOpen: boolean;
@@ -74,11 +75,6 @@ export function ConfirmDialog({
 
   if (!isOpen) return null;
 
-  const confirmButtonClass =
-    variant === "danger"
-      ? "px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-      : "px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700";
-
   return (
     <div
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
@@ -107,21 +103,16 @@ export function ConfirmDialog({
           {message}
         </p>
         <div className="flex gap-3 justify-end">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
-          >
+          <Button variant="ghost" onClick={onCancel}>
             {cancelLabel}
-          </button>
-          <button
+          </Button>
+          <Button
             ref={confirmButtonRef}
-            type="button"
+            variant={variant === "danger" ? "destructive" : "default"}
             onClick={onConfirm}
-            className={confirmButtonClass}
           >
             {confirmLabel}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
