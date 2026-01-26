@@ -86,7 +86,7 @@ export default function SessionPage({ params }: SessionPageProps) {
   }
 
   return (
-    <main className="h-dvh bg-gray-100 dark:bg-gray-900 flex flex-col">
+    <main className="flex-1 min-h-0 bg-gray-100 dark:bg-gray-900 flex flex-col">
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-8 py-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
