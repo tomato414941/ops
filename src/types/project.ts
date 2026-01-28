@@ -21,6 +21,7 @@ export interface AgentSdkConnection extends Connection {
 export interface Project {
   id: string;
   name: string;
+  path?: string;
   status: ProjectStatus;
   connections: Connection[];
 }

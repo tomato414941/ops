@@ -22,17 +22,20 @@ import {
 
 interface ConnectionFormProps {
   projectId: string;
+  projectPath?: string;
   connection?: Connection;
   onSubmit: () => void;
   onCancel: () => void;
 }
 
-export function ConnectionForm({ projectId, connection, onSubmit, onCancel }: ConnectionFormProps) {
+export function ConnectionForm({ projectId, projectPath, connection, onSubmit, onCancel }: ConnectionFormProps) {
   const { showToast } = useToast();
   const [type, setType] = useState<ConnectionType>(connection?.type || "claude_code_cli");
   const [name, setName] = useState(connection?.name || "");
   const [workingDir, setWorkingDir] = useState(
-    connection?.type === "claude_code_cli" ? (connection as ClaudeCodeConnection).workingDir : ""
+    connection?.type === "claude_code_cli"
+      ? (connection as ClaudeCodeConnection).workingDir
+      : projectPath || ""
   );
   const [systemPrompt, setSystemPrompt] = useState(
     connection?.type === "agent_sdk" ? (connection as AgentSdkConnection).systemPrompt || "" : ""

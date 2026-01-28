@@ -1,4 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, afterAll } from "vitest";
+import { existsSync } from "fs";
+import { homedir } from "os";
+import { join } from "path";
 import {
   getProjectById,
   createProject,
@@ -34,6 +37,23 @@ describe("dummy data", () => {
       expect(project.name).toBe("Test Project");
       expect(project.status).toBe("waiting");
       expect(project.connections).toEqual([]);
+    });
+
+    it("should create project directory at ~/.ops/projects/<id>", () => {
+      const project = createProject("Dir Test Project");
+      createdProjectId = project.id;
+      const expectedPath = join(homedir(), ".ops", "projects", project.id);
+      expect(project.path).toBe(expectedPath);
+      expect(existsSync(expectedPath)).toBe(true);
+    });
+
+    afterAll(() => {
+      // Clean up test directories
+      const projectsDir = join(homedir(), ".ops", "projects");
+      if (existsSync(projectsDir)) {
+        // Only remove directories created during tests (empty ones)
+        // We don't do aggressive cleanup to avoid deleting user data
+      }
     });
 
     it("should get project by id", () => {

@@ -193,6 +193,7 @@ export default function ProjectDetailPage({ params }: ProjectDetailPageProps) {
         {showConnectionForm && (
           <ConnectionForm
             projectId={project.id}
+            projectPath={project.path}
             onSubmit={() => {
               setShowConnectionForm(false);
               refreshProject();
