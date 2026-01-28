@@ -9,22 +9,35 @@ export interface StorageData {
   messages: Record<string, Message[]>;
 }
 
-const DATA_DIR = join(homedir(), ".ops");
-const DATA_FILE = join(DATA_DIR, "data.json");
+function getDataDir(): string {
+  if (process.env.OPS_DATA_DIR) {
+    return process.env.OPS_DATA_DIR;
+  }
+  if (process.env.NODE_ENV === "production") {
+    return "/data";
+  }
+  return join(homedir(), ".ops");
+}
+
+function getDataFile(): string {
+  return join(getDataDir(), "data.json");
+}
 
 function ensureDir(): void {
-  if (!existsSync(DATA_DIR)) {
-    mkdirSync(DATA_DIR, { recursive: true });
+  const dataDir = getDataDir();
+  if (!existsSync(dataDir)) {
+    mkdirSync(dataDir, { recursive: true });
   }
 }
 
 export function loadData(): StorageData {
   ensureDir();
-  if (!existsSync(DATA_FILE)) {
+  const dataFile = getDataFile();
+  if (!existsSync(dataFile)) {
     return { projects: [], sessions: [], messages: {} };
   }
   try {
-    const content = readFileSync(DATA_FILE, "utf-8");
+    const content = readFileSync(dataFile, "utf-8");
     return JSON.parse(content);
   } catch {
     return { projects: [], sessions: [], messages: {} };
@@ -33,5 +46,5 @@ export function loadData(): StorageData {
 
 export function saveData(data: StorageData): void {
   ensureDir();
-  writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+  writeFileSync(getDataFile(), JSON.stringify(data, null, 2));
 }

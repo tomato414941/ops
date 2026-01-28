@@ -1,3 +1,6 @@
+import { mkdirSync } from "fs";
+import { homedir } from "os";
+import { join } from "path";
 import { Project, ClaudeCodeConnection, AgentSdkConnection, Session, Message, Connection } from "@/types/project";
 import { loadData, saveData, StorageData } from "./storage";
 
@@ -29,9 +32,15 @@ export function getProjects(): Project[] {
 
 export function createProject(name: string, status: "action_required" | "waiting" = "waiting"): Project {
   const data = getData();
+  const id = crypto.randomUUID();
+  const path = join(homedir(), ".ops", "projects", id);
+
+  mkdirSync(path, { recursive: true });
+
   const project: Project = {
-    id: crypto.randomUUID(),
+    id,
     name,
+    path,
     status,
     connections: [],
   };
@@ -169,7 +178,3 @@ export function addMessage(sessionId: string, message: Message): void {
   persistData();
 }
 
-// Legacy exports for compatibility
-export const projects = getData().projects;
-export const sessions = getData().sessions;
-export const messages = new Map<string, Message[]>();
