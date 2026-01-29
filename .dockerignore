@@ -4,7 +4,12 @@ node_modules
 .gitignore
 *.md
 .env*
+!.env.example
 .husky
 coverage
 .vscode
 *.log
+.DS_Store
+npm-debug.log*
+.npm
+.cache
